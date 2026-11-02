@@ -3,56 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>BigElementMix Pflanzen-Test v5.0.4-rc.1</title>
+<title>BigElementMix – Testbereich</title>
 <style>
 html,body{margin:0;width:100%;height:100%;height:100dvh;background:#070a12;color:#e2e8f0;font-family:system-ui,sans-serif;overflow:hidden}
-#status{padding:24px;max-width:700px;line-height:1.5}
 iframe{position:fixed;inset:0;width:100%;height:100%;height:100dvh;border:0;background:#070a12}
 </style>
 </head>
 <body>
-<!-- TEST ONLY. Reads the checksum-pinned live file without changing it.
-     Applies reviewed replacements only inside an isolated test document.
-     Do not copy this loader to the root for release: use the standalone tested HTML. -->
-<main id="status" role="status">Pflanzen-Test wird geladen …</main>
-<noscript>Für das Spiel muss JavaScript aktiviert sein.</noscript>
-<script>
-(async function () {
-    "use strict";
-    const status = document.getElementById("status");
-    const expectedHash = "6855473ba912131f075785931bdda8ad9a13fb32dad0ce78e414b7b6b6f7e64a";
-    const replacements = [["BigElementMix: Physik-Labor v5.0 (Profi-Edition – 100% Offline)", "BigElementMix: Pflanzen-Test v5.0.4-rc.1"], ["Version 5.0.2 (Stand: 02.11.2026)", "Testversion 5.0.4-rc.1 (Stand: 02.11.2026)"], ["v5.0<\/span>", "v5.0.4-rc.1<\/span>"], ["BigElementMix v5.0.3<\/span>", "BigElementMix v5.0.4-rc.1 · TEST<\/span>"], ["Stand: 02.11.2026 • iPad & Audio Fix", "Pflanzen: Stängel, Blätter & Blüten"], ["Lebende Flora. Wächst mit Wasser oder feuchter Erde organisch weiter; leicht brennbar.", "Auf feuchte Erde setzen: wächst zu einer Pflanze mit Stängel, Blättern und Blüte. Trocken kein Wachstum. Brennbar."], ["<option value=\"portalpark\">", "<option value=\"garden\">🌱 Pflanzen-Garten: links feucht / rechts trocken<\/option>\n                    <option value=\"portalpark\">"], ["        function stepSimulation() {", "        // Pflanzen: begrenztes Triebwachstum; Zustand bleibt in life[] speicherbar.\n        function plantHasWater(x, y) {\n            for (let yy = y; yy < Math.min(SIM_H - 1, y + 64); yy++) {\n                const i = yy * SIM_W + x;\n                if (grid[i] === EL.PLANT) continue;\n                if (grid[i] === EL.WATER) return true;\n                if (grid[i] !== EL.DIRT) return false;\n                if (life[i] > 0) return true;\n                for (let dy = -3; dy <= 3; dy++) {\n                    for (let dx = -3; dx <= 3; dx++) {\n                        const nx = x + dx, ny = yy + dy;\n                        if (nx < 1 || nx >= SIM_W - 1 || ny < 1 || ny >= SIM_H - 1) continue;\n                        if (grid[ny * SIM_W + nx] === EL.WATER) {\n                            life[i] = 1;\n                            wakeChunkAt(x, yy);\n                            return true;\n                        }\n                    }\n                }\n                return false;\n            }\n            return false;\n        }\n\n        function putPlantPart(x, y, part) {\n            if (x < 1 || x >= SIM_W - 1 || y < 1 || y >= SIM_H - 1) return;\n            if (grid[y * SIM_W + x] === EL.EMPTY) setCell(x, y, EL.PLANT, part, AMBIENT_HEAT);\n        }\n\n        function growPlantLeaves(x, y, age) {\n            const side = ((age >> 2) & 1) ? -1 : 1;\n            for (const sign of [side, -side]) {\n                const length = sign === side ? 4 : 3;\n                for (let k = 1; k <= length; k++) {\n                    const yy = y - Math.floor(k / 2);\n                    putPlantPart(x + sign * k, yy, 220);\n                    if (k === 2 || k === 3) putPlantPart(x + sign * k, yy + 1, 221);\n                }\n            }\n        }\n\n        function stepPlants() {\n            if (stepCounter % 10 !== 0) return;\n            for (let y = 2; y < SIM_H - 1; y++) {\n                for (let x = 1; x < SIM_W - 1; x++) {\n                    const i = y * SIM_W + x;\n                    if (grid[i] !== EL.PLANT || life[i] >= 160 || heat[i] < 8 || heat[i] > 80) continue;\n                    if (grid[i - SIM_W] !== EL.EMPTY) continue;\n                    if (life[i] === 0) {\n                        let crowded = false;\n                        for (let dx = -5; dx <= 5; dx++) {\n                            if (dx === 0 || x + dx < 1 || x + dx >= SIM_W - 1) continue;\n                            for (let dy = -1; dy <= 0; dy++) {\n                                const n = (y + dy) * SIM_W + x + dx;\n                                if (grid[n] === EL.PLANT && life[n] > 0 && life[n] < 220) crowded = true;\n                            }\n                        }\n                        if (crowded) continue;\n                    }\n                    if (!plantHasWater(x, y)) continue;\n                    const age = life[i] + 1;\n                    life[i] = 160;\n                    wakeChunkAt(x, y);\n                    if (age > 22 + (x % 9)) {\n                        setCell(x, y - 1, EL.PLANT, 230, AMBIENT_HEAT);\n                        for (const [dx, dy] of [[-1, -1], [0, -2], [1, -1], [-1, 0], [1, 0], [0, 1]]) {\n                            putPlantPart(x + dx, y - 1 + dy, 231);\n                        }\n                        continue;\n                    }\n                    setCell(x, y - 1, EL.PLANT, age, AMBIENT_HEAT);\n                    if (age === 1 || age % 4 === 0) growPlantLeaves(x, y, age);\n                }\n            }\n        }\n\n        function stepSimulation() {"], ["            // Step Stickman & AI Test-Dummies\n            stepAgents();", "            stepPlants();\n            // Step Stickman & AI Test-Dummies\n            stepAgents();"], ["                                        } else if (grid[nIdx] === EL.PLANT && life[idx] > 0) {\n                                            setCell(x, y, EL.PLANT, 0, AMBIENT_HEAT);\n                                            continue;\n", ""], ["                                        } else if (nEl === EL.PLANT && (r & 7) === 0) {\n                                            setCell(x, y, EL.PLANT, 0, AMBIENT_HEAT);\n                                            continue;\n", ""], ["                    else if (el === EL.DIRT && life[idx] > 0) {", "                    else if (el === EL.PLANT) {\n                        const part = life[idx];\n                        if (part === 230) pixelBuffer[idx] = rgbToUint32(255, 218, 65);\n                        else if (part === 231) pixelBuffer[idx] = rgbToUint32(245, 137, 191);\n                        else if (part === 160) pixelBuffer[idx] = rgbToUint32(72, 124, 38);\n                        else if (part >= 220) pixelBuffer[idx] = part === 221 ? rgbToUint32(38, 139, 61) : rgbToUint32(103, 210, 74);\n                        else pixelBuffer[idx] = rgbToUint32(166, 232, 92);\n                    }\n                    else if (el === EL.DIRT && life[idx] > 0) {"], ["            if (sceneName === \"portalpark\") {", "            if (sceneName === \"garden\") {\n                drawRectElement(18, 143, 21, 175, EL.WALL);\n                drawRectElement(146, 143, 149, 175, EL.WALL);\n                drawRectElement(22, 145, 145, 175, EL.DIRT);\n                for (let yy = 145; yy <= 175; yy++) {\n                    for (let xx = 22; xx <= 145; xx++) life[yy * SIM_W + xx] = 1;\n                }\n                drawRectElement(22, 138, 39, 144, EL.WATER);\n                drawRectElement(174, 143, 177, 175, EL.WALL);\n                drawRectElement(298, 143, 301, 175, EL.WALL);\n                drawRectElement(178, 145, 297, 175, EL.DIRT);\n                for (let xx = 52; xx <= 138; xx += 14) setCell(xx, 144, EL.PLANT);\n                for (let xx = 190; xx <= 286; xx += 16) setCell(xx, 144, EL.PLANT);\n                wakeAllChunks();\n                return;\n            }\n\n            if (sceneName === \"portalpark\") {"], ["            loadPresetScene(\"portalpark\");", "            document.getElementById(\"presetSelect\").value = \"garden\";\n            loadPresetScene(\"garden\");"], ["\"bigelementmix_save_v5\"", "\"bigelementmix_test_plants_v5\""], [" || localStorage.getItem(\"powderbox_save_v4\") || localStorage.getItem(\"powderbox_save_v3\")", ""], ["            // Clean up any stale self-cache that caused iPad Safari reload loops\n            if (\"caches\" in window) {\n                caches.keys().then(keys => {\n                    keys.forEach(k => caches.delete(k).catch(() => {}));\n                }).catch(() => {});\n            }\n", "            // Keine anderen GitHub-Pages-Caches verändern.\n"]];
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
-    try {
-        if (!window.crypto || !window.crypto.subtle) throw new Error("Sichere Prüfsummenprüfung ist hier nicht verfügbar. Bitte die HTTPS-Testseite verwenden.");
-        const response = await fetch("../index.html?plants-base=v5.0.3", {
-            cache: "no-store", credentials: "omit", mode: "same-origin", redirect: "error", signal: controller.signal
-        });
-        if (!response.ok) throw new Error("Die vorhandene Spielbasis konnte nicht geladen werden.");
-        const bytes = await response.arrayBuffer();
-        const digest = await window.crypto.subtle.digest("SHA-256", bytes);
-        const actualHash = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, "0")).join("");
-        if (actualHash !== expectedHash) throw new Error("Die Spielbasis hat sich geändert. Der Test wurde zur Sicherheit nicht gestartet. Bitte dem Projektbetreiber melden.");
-        let html = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-        for (const [before, after] of replacements) {
-            const count = html.split(before).length - 1;
-            const expectedCount = before === '"bigelementmix_save_v5"' ? 2 : 1;
-            if (count !== expectedCount) throw new Error("Ein Test-Patch passt nicht zur geprüften Spielbasis.");
-            html = html.split(before).join(after);
-        }
-        const frame = document.createElement("iframe");
-        frame.title = "BigElementMix v5.0.4-rc.1 – Pflanzen-Test";
-        frame.setAttribute("sandbox", "allow-scripts allow-same-origin allow-downloads allow-modals");
-        frame.addEventListener("load", () => { status.hidden = true; frame.contentWindow.focus(); }, { once: true });
-        frame.srcdoc = html;
-        document.body.appendChild(frame);
-    } catch (error) {
-        status.textContent = "Test konnte nicht gestartet werden: " + (error instanceof Error ? error.message : "Unbekannter Fehler");
-    } finally {
-        clearTimeout(timeout);
-    }
-})();
-</script>
+<!-- TEST ONLY: zeigt die aktuelle, unveränderte Live-Version. -->
+<iframe title="BigElementMix – aktuelle Live-Version" src="../index.html"></iframe>
 </body>
 </html>
