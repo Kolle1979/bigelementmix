@@ -41,6 +41,8 @@
             width: 100vw;
             overscroll-behavior: none;
             line-height: 1.5;
+            touch-action: manipulation;
+            -webkit-text-size-adjust: 100%;
         }
         h1, h2, h3, p { margin: 0; }
         .mono, .font-mono {
@@ -338,8 +340,8 @@
             -webkit-overflow-scrolling: touch;
             overscroll-behavior-y: contain;
         }
-        /* All interactive controls use touch-action: manipulation for zero 300ms delay */
-        button, select, input, label {
+        /* All interactive controls use touch-action: manipulation for zero 300ms delay & no double-tap zoom */
+        button, select, input, label, header, aside, main, div, span {
             touch-action: manipulation;
         }
         /* Custom scrollbar */
@@ -643,13 +645,13 @@
 
         <!-- Subtle Version & Release Date Footer -->
         <footer class="px-3 py-1 bg-slate-950/90 border-t border-slate-800/80 flex items-center justify-between text-[10px] font-mono text-slate-500 shrink-0">
-            <span>BigElementMix v5.0.2</span>
-            <span>Stand: 02.11.2026 • Offline-Build</span>
+            <span>BigElementMix v5.0.3</span>
+            <span>Stand: 02.11.2026 • iPad & Audio Fix</span>
         </footer>
     </aside>
 
     <!-- =================================================================== -->
-    <!-- BIG ELEMENT MIX v5.0 PROFI-ENGINE (PHYSICS, ELECTRONICS, AUDIO)     -->
+    <!-- BIG ELEMENT MIX v5.0.3 PROFI-ENGINE (PHYSICS, ELECTRONICS, AUDIO)   -->
     <!-- =================================================================== -->
     <script>
     (function() {
@@ -700,103 +702,229 @@
         }
 
         // =====================================================================
-        // 2. PROCEDURAL WEB AUDIO SYNTHESIZER (NO EXTERNAL FILES)
+        // 2. REALISTIC ACOUSTIC WEB AUDIO ENGINE (100% OFFLINE NOISE & FILTERS)
         // =====================================================================
         let audioCtx = null;
         let soundEnabled = false;
         let lastSoundTime = 0;
+        let lastGrainTime = 0;
+        let whiteNoiseBuf = null;
+        let brownNoiseBuf = null;
+        let masterGain = null;
 
         function initAudioContext() {
             if (!soundEnabled) return;
             try {
                 if (!audioCtx) {
                     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-                    if (AudioContextClass) audioCtx = new AudioContextClass();
+                    if (!AudioContextClass) return;
+                    audioCtx = new AudioContextClass();
+
+                    masterGain = audioCtx.createGain();
+                    masterGain.gain.value = 0.85;
+                    masterGain.connect(audioCtx.destination);
+
+                    // Pre-compute 1.5s of White & Brown Noise for realistic organic sound textures
+                    const sr = audioCtx.sampleRate;
+                    const len = Math.floor(sr * 1.5);
+                    whiteNoiseBuf = audioCtx.createBuffer(1, len, sr);
+                    brownNoiseBuf = audioCtx.createBuffer(1, len, sr);
+                    const wData = whiteNoiseBuf.getChannelData(0);
+                    const bData = brownNoiseBuf.getChannelData(0);
+                    let lastBrown = 0;
+                    for (let i = 0; i < len; i++) {
+                        const w = Math.random() * 2 - 1;
+                        wData[i] = w;
+                        lastBrown = (lastBrown + (0.02 * w)) / 1.02;
+                        bData[i] = lastBrown * 3.2;
+                    }
                 }
                 if (audioCtx && audioCtx.state === "suspended") {
                     audioCtx.resume();
                 }
+                // iOS/iPadOS Safari silent unlock pulse
+                if (audioCtx && whiteNoiseBuf) {
+                    const src = audioCtx.createBufferSource();
+                    const g = audioCtx.createGain();
+                    g.gain.value = 0.0001;
+                    src.buffer = whiteNoiseBuf;
+                    src.connect(g);
+                    g.connect(masterGain);
+                    src.start(0, 0, 0.01);
+                }
             } catch (_) {}
         }
 
-        function playUiClick(freq = 560) {
-            if (!soundEnabled || !audioCtx) return;
+        // Soft, wooden/mechanical tactile click (no digital beep)
+        function playUiClick(pitch = 1.0) {
+            if (!soundEnabled || !audioCtx || !whiteNoiseBuf) return;
             try {
                 const now = audioCtx.currentTime;
-                const osc = audioCtx.createOscillator();
+                const src = audioCtx.createBufferSource();
+                src.buffer = whiteNoiseBuf;
+
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = "bandpass";
+                filter.frequency.setValueAtTime(850 * (pitch / 550), now);
+                filter.Q.value = 3.5;
+
                 const gain = audioCtx.createGain();
-                osc.type = "sine";
-                osc.frequency.setValueAtTime(freq, now);
-                osc.frequency.exponentialRampToValueAtTime(freq * 0.5, now + 0.035);
-                gain.gain.setValueAtTime(0.06, now);
-                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.035);
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.start(now);
-                osc.stop(now + 0.04);
+                gain.gain.setValueAtTime(0.08, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.022);
+
+                src.connect(filter);
+                filter.connect(gain);
+                gain.connect(masterGain);
+                src.start(now, Math.random() * 0.8, 0.025);
             } catch (_) {}
         }
 
+        // Realistic tactile sound when pouring Sand, Water, Fire, or Acid
+        function playBrushGrainSound(elId) {
+            if (!soundEnabled || !audioCtx || !whiteNoiseBuf) return;
+            const tMs = performance.now();
+            if (tMs - lastGrainTime < 55) return;
+            lastGrainTime = tMs;
+            try {
+                const now = audioCtx.currentTime;
+                const src = audioCtx.createBufferSource();
+                const isDeep = (elId === EL.LAVA || elId === EL.FIRE || elId === EL.STONE || elId === EL.WALL);
+                src.buffer = isDeep ? brownNoiseBuf : whiteNoiseBuf;
+
+                const filter = audioCtx.createBiquadFilter();
+                const gain = audioCtx.createGain();
+
+                if (elId === EL.SAND || elId === EL.DIRT || elId === EL.GUNPOWDER) {
+                    // Crisp sand grains trickling
+                    filter.type = "bandpass";
+                    filter.frequency.setValueAtTime(2400 + Math.random() * 900, now);
+                    filter.Q.value = 2.0;
+                    gain.gain.setValueAtTime(0.045, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+                } else if (elId === EL.WATER || elId === EL.OIL || elId === EL.ACID) {
+                    // Resonant water droplet / splash
+                    filter.type = "bandpass";
+                    const fStart = 520 + Math.random() * 380;
+                    filter.frequency.setValueAtTime(fStart, now);
+                    filter.frequency.exponentialRampToValueAtTime(fStart * 1.65, now + 0.055);
+                    filter.Q.value = 5.5;
+                    gain.gain.setValueAtTime(0.065, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+                } else if (elId === EL.FIRE || elId === EL.LAVA || elId === EL.TOOL_HEAT) {
+                    // Warmcampfire crackle & whoosh
+                    filter.type = "lowpass";
+                    filter.frequency.setValueAtTime(480 + Math.random() * 250, now);
+                    gain.gain.setValueAtTime(0.07, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.075);
+                } else {
+                    // Soft placement thud
+                    filter.type = "lowpass";
+                    filter.frequency.setValueAtTime(340, now);
+                    gain.gain.setValueAtTime(0.04, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.035);
+                }
+
+                src.connect(filter);
+                filter.connect(gain);
+                gain.connect(masterGain);
+                src.start(now, Math.random() * 0.9, 0.08);
+            } catch (_) {}
+        }
+
+        // Deep acoustic sub-bass + brown-noise shockwave explosion
         function playExplosionSound(intensity = 1.0) {
-            if (!soundEnabled || !audioCtx) return;
+            if (!soundEnabled || !audioCtx || !brownNoiseBuf) return;
             const tMs = performance.now();
-            if (tMs - lastSoundTime < 65) return;
+            if (tMs - lastSoundTime < 75) return;
             lastSoundTime = tMs;
             try {
                 const now = audioCtx.currentTime;
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = "triangle";
-                osc.frequency.setValueAtTime(110 * intensity, now);
-                osc.frequency.exponentialRampToValueAtTime(24, now + 0.28);
-                gain.gain.setValueAtTime(Math.min(0.25, 0.14 * intensity), now);
-                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.start(now);
-                osc.stop(now + 0.31);
+                const dur = Math.min(0.65, 0.38 * intensity);
+
+                // 1. Brown-noise blast wave with sweeping lowpass filter
+                const noiseSrc = audioCtx.createBufferSource();
+                noiseSrc.buffer = brownNoiseBuf;
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = "lowpass";
+                filter.frequency.setValueAtTime(750 * intensity, now);
+                filter.frequency.exponentialRampToValueAtTime(55, now + dur);
+
+                const noiseGain = audioCtx.createGain();
+                noiseGain.gain.setValueAtTime(Math.min(0.45, 0.28 * intensity), now);
+                noiseGain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+                noiseSrc.connect(filter);
+                filter.connect(noiseGain);
+                noiseGain.connect(masterGain);
+                noiseSrc.start(now, Math.random() * 0.4, dur);
+
+                // 2. Sub-bass chest punch
+                const subOsc = audioCtx.createOscillator();
+                const subGain = audioCtx.createGain();
+                subOsc.type = "sine";
+                subOsc.frequency.setValueAtTime(95, now);
+                subOsc.frequency.exponentialRampToValueAtTime(22, now + dur * 0.85);
+                subGain.gain.setValueAtTime(Math.min(0.35, 0.22 * intensity), now);
+                subGain.gain.exponentialRampToValueAtTime(0.001, now + dur * 0.85);
+
+                subOsc.connect(subGain);
+                subGain.connect(masterGain);
+                subOsc.start(now);
+                subOsc.stop(now + dur * 0.9);
             } catch (_) {}
         }
 
+        // Natural filtered white-noise steam/acid hiss (no harsh sawtooth)
         function playSizzleSound(isSteam = true) {
-            if (!soundEnabled || !audioCtx) return;
+            if (!soundEnabled || !audioCtx || !whiteNoiseBuf) return;
             const tMs = performance.now();
-            if (tMs - lastSoundTime < 90) return;
+            if (tMs - lastSoundTime < 85) return;
             lastSoundTime = tMs;
             try {
                 const now = audioCtx.currentTime;
-                const osc = audioCtx.createOscillator();
+                const src = audioCtx.createBufferSource();
+                src.buffer = whiteNoiseBuf;
+
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = "bandpass";
+                filter.frequency.setValueAtTime(isSteam ? 3200 : 1650, now);
+                filter.frequency.exponentialRampToValueAtTime(isSteam ? 4800 : 900, now + 0.09);
+                filter.Q.value = isSteam ? 1.8 : 3.2;
+
                 const gain = audioCtx.createGain();
-                osc.type = isSteam ? "sine" : "sawtooth";
-                osc.frequency.setValueAtTime(isSteam ? 980 : 420, now);
-                osc.frequency.exponentialRampToValueAtTime(isSteam ? 1450 : 180, now + 0.06);
-                gain.gain.setValueAtTime(0.025, now);
-                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.065);
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.start(now);
-                osc.stop(now + 0.07);
+                gain.gain.setValueAtTime(0.045, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.095);
+
+                src.connect(filter);
+                filter.connect(gain);
+                gain.connect(masterGain);
+                src.start(now, Math.random() * 0.8, 0.1);
             } catch (_) {}
         }
 
+        // Crisp electric spark snap
         function playZapSound() {
-            if (!soundEnabled || !audioCtx) return;
+            if (!soundEnabled || !audioCtx || !whiteNoiseBuf) return;
             const tMs = performance.now();
-            if (tMs - lastSoundTime < 80) return;
+            if (tMs - lastSoundTime < 75) return;
             lastSoundTime = tMs;
             try {
                 const now = audioCtx.currentTime;
-                const osc = audioCtx.createOscillator();
+                const src = audioCtx.createBufferSource();
+                src.buffer = whiteNoiseBuf;
+
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = "highpass";
+                filter.frequency.setValueAtTime(1900, now);
+
                 const gain = audioCtx.createGain();
-                osc.type = "sawtooth";
-                osc.frequency.setValueAtTime(1320, now);
-                osc.frequency.exponentialRampToValueAtTime(240, now + 0.055);
-                gain.gain.setValueAtTime(0.04, now);
-                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.start(now);
-                osc.stop(now + 0.065);
+                gain.gain.setValueAtTime(0.075, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+
+                src.connect(filter);
+                filter.connect(gain);
+                gain.connect(masterGain);
+                src.start(now, Math.random() * 0.9, 0.05);
             } catch (_) {}
         }
 
@@ -2544,7 +2672,13 @@
             }
 
             // Overlay Canvas: Chunk Radar, Stickman/Dummy Figures & Brush Reticle
+            // CRITICAL iOS/iPad Safari WebKit Fix: ONLY redraw the 1280x720 overlayCanvas when needed
+            // to prevent GPU texture backing-store memory exhaustion & tab crashes on iPad!
+            const needsOverlayDraw = agents.length > 0 || showChunkDebug || pointerState.inside || overlayWasDirty;
+            if (!needsOverlayDraw) return;
+
             overlayCtx.clearRect(0, 0, DISPLAY_W, DISPLAY_H);
+            overlayWasDirty = (agents.length > 0 || showChunkDebug || pointerState.inside);
 
             // Render Stickman & Test-Dummies with crisp vector limbs & HP bars
             for (let i = 0; i < agents.length; i++) {
@@ -2651,6 +2785,8 @@
                 overlayCtx.restore();
             }
         }
+
+        let overlayWasDirty = true;
 
         // =====================================================================
         // 8. 5 INTERACTIVE PRESET SCENES (INCL. ELECTRONICS & C4 VAULT)
@@ -2962,6 +3098,7 @@
                     }
                 }
             }
+            playBrushGrainSound(elId);
         }
 
         function paintLine(x0, y0, x1, y1, elId) {
@@ -2970,8 +3107,10 @@
             const sx = (x0 < x1) ? 1 : -1;
             const sy = (y0 < y1) ? 1 : -1;
             let err = dx - dy;
+            // Safety cap (max 384 steps) to prevent infinite loop freeze on extreme coordinates
+            let maxSteps = 384;
 
-            while (true) {
+            while (maxSteps-- > 0) {
                 applyBrushAt(x0, y0, elId);
                 if (x0 === x1 && y0 === y1) break;
                 const e2 = 2 * err;
@@ -2982,12 +3121,16 @@
 
         function updatePointerCoords(clientX, clientY) {
             const rect = simCanvas.getBoundingClientRect();
+            if (!rect.width || !rect.height) return;
             const normX = (clientX - rect.left) / rect.width;
             const normY = (clientY - rect.top) / rect.height;
+            const newX = Math.max(0, Math.min(SIM_W - 1, Math.floor(normX * SIM_W)));
+            const newY = Math.max(0, Math.min(SIM_H - 1, Math.floor(normY * SIM_H)));
+            if (!Number.isFinite(newX) || !Number.isFinite(newY)) return;
             pointerState.prevSimX = pointerState.simX;
             pointerState.prevSimY = pointerState.simY;
-            pointerState.simX = Math.max(0, Math.min(SIM_W - 1, Math.floor(normX * SIM_W)));
-            pointerState.simY = Math.max(0, Math.min(SIM_H - 1, Math.floor(normY * SIM_H)));
+            pointerState.simX = newX;
+            pointerState.simY = newY;
         }
 
         function getActivePaintElement() {
@@ -2997,8 +3140,34 @@
 
         simCanvas.addEventListener("contextmenu", e => e.preventDefault());
 
-        simCanvas.addEventListener("pointerdown", e => {
+        // Prevent iPad Safari double-tap-to-zoom & pinch-zoom lockup across the entire document
+        document.addEventListener("dblclick", e => {
             e.preventDefault();
+        }, { passive: false });
+
+        document.addEventListener("gesturestart", e => {
+            e.preventDefault();
+        }, { passive: false });
+
+        document.addEventListener("gesturechange", e => {
+            e.preventDefault();
+        }, { passive: false });
+
+        let lastGlobalTouchEnd = 0;
+        document.addEventListener("touchend", e => {
+            const now = performance.now();
+            if (now - lastGlobalTouchEnd <= 320) {
+                if (e.cancelable) e.preventDefault();
+            }
+            lastGlobalTouchEnd = now;
+        }, { passive: false });
+
+        simCanvas.addEventListener("pointerdown", e => {
+            // Multi-touch guard: ignore secondary fingers while drawing so paintLine never jumps across the screen
+            if (pointerState.active && pointerState.pointerId !== null && e.pointerId !== pointerState.pointerId) {
+                return;
+            }
+            if (e.cancelable) e.preventDefault();
             initAudioContext();
             try { simCanvas.setPointerCapture(e.pointerId); } catch (_) {}
 
@@ -3018,7 +3187,10 @@
         });
 
         simCanvas.addEventListener("pointermove", e => {
-            e.preventDefault();
+            if (pointerState.active && pointerState.pointerId !== null && e.pointerId !== pointerState.pointerId) {
+                return;
+            }
+            if (e.cancelable) e.preventDefault();
             pointerState.inside = true;
             updatePointerCoords(e.clientX, e.clientY);
 
@@ -3645,10 +3817,10 @@
             updateUndoUI();
             requestAnimationFrame(mainLoop);
 
-            // Optional Offline Cache (Cache API) when hosted on GitHub Pages (https://)
-            if ("caches" in window && (location.protocol === "https:" || location.hostname === "localhost")) {
-                caches.open("bigelementmix-offline-v5").then(cache => {
-                    cache.add(location.href).catch(() => {});
+            // Clean up any stale self-cache that caused iPad Safari reload loops
+            if ("caches" in window) {
+                caches.keys().then(keys => {
+                    keys.forEach(k => caches.delete(k).catch(() => {}));
                 }).catch(() => {});
             }
         };
